@@ -78,8 +78,15 @@ Then edit `.env`:
 # M0 — download filings + metadata (needs SEC_USER_AGENT in .env)
 python fetch_filings.py
 
+# Inspect which filings would be fetched, without downloading:
+python fetch_filings.py --dry-run
+
 # (parse / chunk / index / ask / evals / UI commands added in later milestones)
 ```
+
+Writes `data/raw/AAPL_10-K_FY<year>.html` (three files) and
+`data/raw/filings_meta.json`. Fiscal year comes from each filing's
+`report_date` (§9.1), never its filing date.
 
 ---
 
