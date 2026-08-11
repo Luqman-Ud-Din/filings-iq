@@ -138,7 +138,26 @@ def chunk_document(doc, max_tokens=MAX_TOKENS):
 
         flush()
 
-    return _merge_small_adjacent(chunks, max_tokens)
+    return _add_section_context(_merge_small_adjacent(chunks, max_tokens))
+
+
+def _add_section_context(chunks):
+    """Prefix each chunk's text with a natural-language section header.
+
+    §14 (paraphrase misses): a bare figure like "391,035" embeds far from a
+    query like "how much did Apple make". Prepending the filing/section context
+    ("Apple 10-K — FY2024, Item 7: Management's Discussion and Analysis") pulls
+    the chunk's embedding toward those section words, without a reranker. The
+    header sits first so it survives the embedder's input-window truncation.
+    """
+    for chunk in chunks:
+        meta = chunk["metadata"]
+        header = (
+            f"Apple 10-K — FY{meta['fiscal_year']}, "
+            f"Item {meta['item']}: {meta['section_title']}"
+        )
+        chunk["text"] = f"{header}\n\n{chunk['text']}"
+    return chunks
 
 
 def _merge_small_adjacent(chunks, max_tokens):

@@ -187,7 +187,9 @@ The project's source of truth is the human-graded eval score over 25 questions
 
 | Step | What changed | Score |
 |------|--------------|-------|
-| _baseline_ | initial pipeline | _pending human grading_ |
+| _baseline_ | initial pipeline (M0–M4) | _pending human grading_ |
+| M5·1 | section-title context prepended to each chunk (§14 paraphrase fix) | _delta pending grading_ |
 
 _(Baseline → final changelog is filled in as M4/M5 PRs merge and you grade the
-results; scores are never auto-filled.)_
+results; scores are never auto-filled. Each M5 row is one improvement; run
+`--score` before and after to fill its delta.)_
