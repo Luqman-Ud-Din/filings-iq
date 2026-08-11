@@ -92,7 +92,11 @@ python -m ingest.chunk --sample 5         # QA: 5 random chunks + metadata
 python -m ingest.index --dry-run          # chunk only (no model download / no Chroma)
 python -m ingest.index --rebuild          # embed (bge-small, CPU) into persistent Chroma
 
-# (ask / evals / UI commands added in later milestones)
+# M3 — ask grounded, cited questions (streams the answer)
+python -m app.ask "What was services revenue in FY2024?"
+python -m app.ask --k 8 "How did risk factors change between FY2023 and FY2024?"
+
+# (evals / UI commands added in later milestones)
 ```
 
 Writes `data/raw/AAPL_10-K_FY<year>.html` (three files) and
@@ -126,6 +130,15 @@ through it top to bottom after a fresh clone.
       chunks near the PRD's 800-token ceiling are silently truncated at embed
       time (see "Known deviations" below). Decide during M4/M5 tuning whether to
       lower the chunk ceiling toward ~512.
+- [ ] **(M3)** With the index built and an API key in `.env`, run the three demo
+      questions and confirm each answer carries ≥1 citation, plus one
+      deliberately-unanswerable question that refuses (FR-5 AC):
+      `python -m app.ask "What was services revenue in FY2024?"`. *Needs the live
+      index + LLM — unrunnable here (no key, index not built).*
+- [ ] **(M3)** Confirm FR-4's AC: ask an FY2024 question and check
+      `data/traces.jsonl` shows **only** `FY2024-*` chunk ids for that query.
+      *The year-filter logic is unit-verified; the live trace needs the real
+      index.*
 
 ---
 
