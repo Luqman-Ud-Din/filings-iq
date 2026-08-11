@@ -1,8 +1,10 @@
 """FR-2 — Chunking.
 
-Split parsed sections into ~500-800 token chunks, each carrying the §9.2
-metadata schema. Tables are never split mid-table; list items arrive from the
-parser as their own blocks, so they are never split mid-item.
+Split parsed sections into chunks (default ~500 tokens, aligned to the bge-small
+512-token embed window; the PRD's ~500-800 floor — raise with --max-tokens),
+each carrying the §9.2 metadata schema. Tables are never split mid-table; list
+items arrive from the parser as their own blocks, so they are never split
+mid-item.
 
 Run from the repo root:
 
@@ -18,6 +20,7 @@ indexer (FR-3). Metadata (§9.2):
 """
 
 import argparse
+import os
 import random
 import re
 import sys
@@ -25,27 +28,57 @@ from pathlib import Path
 
 from ingest.parse import RAW_DIR, parse_filing
 
-MAX_TOKENS = 800
-MIN_TOKENS = 400  # soft floor; section tails may be shorter
+DEFAULT_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+
+# bge-small-en-v1.5 accepts 512 model tokens and silently truncates longer
+# inputs. We budget chunks against that window (leaving headroom for the
+# section-context header + [CLS]/[SEP]) so a chunk embeds in full. This sits at
+# the PRD's ~500-800 floor (§FR-2); raise it with --max-tokens to A/B.
+MAX_TOKENS = 500
+MIN_TOKENS = 300  # soft floor; section tails may be shorter
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(])")
 
-_ENCODER = None
-_ENCODER_READY = False
+_TOKENIZER = None
+_TOKENIZER_KIND = None  # "bge" | "tiktoken" | "words"
+
+
+def _init_tokenizer():
+    """Prefer the embedder's own tokenizer (what actually truncates); fall back.
+
+    Order: the bge WordPiece tokenizer (matches the 512-token embed window) ->
+    tiktoken -> word-count. In this build environment the bge tokenizer cannot
+    be downloaded, so the fallback runs; a normal local run (model already
+    fetched for indexing) uses the exact bge tokenizer.
+    """
+    global _TOKENIZER, _TOKENIZER_KIND
+    if _TOKENIZER_KIND is not None:
+        return
+    try:
+        from transformers import AutoTokenizer
+
+        model = os.environ.get("EMBED_MODEL", DEFAULT_EMBED_MODEL)
+        _TOKENIZER = AutoTokenizer.from_pretrained(model)
+        _TOKENIZER_KIND = "bge"
+        return
+    except Exception:
+        pass
+    try:
+        import tiktoken
+
+        _TOKENIZER = tiktoken.get_encoding("cl100k_base")
+        _TOKENIZER_KIND = "tiktoken"
+        return
+    except Exception:
+        _TOKENIZER_KIND = "words"
 
 
 def count_tokens(text):
-    """Token count via tiktoken when available, else a word-count estimate."""
-    global _ENCODER, _ENCODER_READY
-    if not _ENCODER_READY:
-        try:
-            import tiktoken
-
-            _ENCODER = tiktoken.get_encoding("cl100k_base")
-        except Exception:  # tiktoken optional (§7) — fall back to word count
-            _ENCODER = None
-        _ENCODER_READY = True
-    if _ENCODER is not None:
-        return len(_ENCODER.encode(text))
+    """Token count in the units the embedder truncates on (bge), with fallback."""
+    _init_tokenizer()
+    if _TOKENIZER_KIND == "bge":
+        return len(_TOKENIZER.encode(text, add_special_tokens=False))
+    if _TOKENIZER_KIND == "tiktoken":
+        return len(_TOKENIZER.encode(text))
     return int(len(text.split()) * 1.3) + 1
 
 
