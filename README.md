@@ -86,7 +86,13 @@ python -m ingest.parse                    # summarize every filing in data/raw
 python -m ingest.parse --item 8           # print Item 8 (income statement) of the most recent FY
 python -m ingest.parse --fy 2024 --item 7 # print Item 7 (MD&A) of FY2024
 
-# (chunk / index / ask / evals / UI commands added in later milestones)
+# M2 — chunk sections and build the vector index
+python -m ingest.chunk                    # build all chunks, print stats
+python -m ingest.chunk --sample 5         # QA: 5 random chunks + metadata
+python -m ingest.index --dry-run          # chunk only (no model download / no Chroma)
+python -m ingest.index --rebuild          # embed (bge-small, CPU) into persistent Chroma
+
+# (ask / evals / UI commands added in later milestones)
 ```
 
 Writes `data/raw/AAPL_10-K_FY<year>.html` (three files) and
@@ -110,8 +116,28 @@ through it top to bottom after a fresh clone.
       markdown table with figures under the correct fiscal-year columns (FR-1 AC).
       *Verified here only on a representative fixture — the real filings were not
       downloadable in this environment.*
+- [ ] **(M2)** Run `python -m ingest.index --rebuild` on the real corpus and
+      confirm it prints the final chunk count and completes on CPU in ≤ ~10 min
+      (FR-3 AC). The first run downloads the `bge-small` model (~130 MB) from
+      Hugging Face. *Both the model download and Chroma indexing were unrunnable
+      here (Hugging Face blocked, heavy deps deferred); chunking itself is
+      verified — `python -m ingest.chunk --sample 5` shows full §9.2 metadata.*
+- [ ] **(M2 — decision point)** `bge-small-en-v1.5` accepts **512 model tokens**;
+      chunks near the PRD's 800-token ceiling are silently truncated at embed
+      time (see "Known deviations" below). Decide during M4/M5 tuning whether to
+      lower the chunk ceiling toward ~512.
 
 ---
+
+## Known deviations from the PRD
+
+- **Chunk size vs. embedding window (flagged, not worked around).** FR-2 targets
+  ~500–800 token chunks; the pinned embedder `bge-small-en-v1.5` (§7) accepts
+  only **512 model tokens** and silently truncates longer inputs. The chunker
+  keeps the PRD's 800-token ceiling as specified rather than quietly overriding
+  it; the practical effect is that the largest chunks embed on their first ~512
+  tokens. This is a tuning knob for M4/M5 (chunk size is exactly the lever §14
+  points at for retrieval misses) and a decision for you — not a silent change.
 
 ## Troubleshooting
 
