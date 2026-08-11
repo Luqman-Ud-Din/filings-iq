@@ -139,27 +139,28 @@ def corpus_fy_range():
     return _STATE["fy_range"]
 
 
-def retrieve(question, k=None):
-    """Top-k similarity search with an optional fiscal-year ``where`` filter.
+def retrieval_plan(question):
+    """Decide which ``where`` filters to run for a question.
 
-    The sole vector-store access point (§13). Returns a list of hits:
-    ``{chunk_id, text, metadata, score}`` sorted best-first.
+    §14 (comparison questions): when the question names two or more fiscal
+    years, run one top-k query PER year and merge, so both years are represented
+    instead of top-k skewing toward whichever year embeds closer. A single named
+    year (or none) runs one query.
     """
-    k = k or DEFAULT_TOP_K
-    where = build_where(detect_fiscal_years(question))
-    collection = _get_collection()
-    result = collection.query(
-        query_embeddings=[embed_query(question)],
-        n_results=k,
-        where=where,
-        include=["documents", "metadatas", "distances"],
-    )
-    ids = result["ids"][0]
-    docs = result["documents"][0]
-    metas = result["metadatas"][0]
-    dists = result["distances"][0]
+    years = detect_fiscal_years(question)
+    if len(years) >= 2:
+        return [{"fiscal_year": y} for y in years]
+    return [build_where(years)]
+
+
+def _hits_from_result(result):
     hits = []
-    for cid, doc, meta, dist in zip(ids, docs, metas, dists):
+    for cid, doc, meta, dist in zip(
+        result["ids"][0],
+        result["documents"][0],
+        result["metadatas"][0],
+        result["distances"][0],
+    ):
         hits.append(
             {
                 "chunk_id": cid,
@@ -169,6 +170,30 @@ def retrieve(question, k=None):
             }
         )
     return hits
+
+
+def retrieve(question, k=None):
+    """Similarity search with a fiscal-year ``where`` filter (FR-4).
+
+    The sole vector-store access point (§13). Returns a list of hits
+    ``{chunk_id, text, metadata, score}`` sorted best-first. For multi-year
+    comparison questions, returns k hits per named year (balanced coverage).
+    """
+    k = k or DEFAULT_TOP_K
+    collection = _get_collection()
+    query_embedding = embed_query(question)  # embed once, reuse per year
+    plans = retrieval_plan(question)
+    hits = []
+    for where in plans:
+        result = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=k,
+            where=where,
+            include=["documents", "metadatas", "distances"],
+        )
+        hits.extend(_hits_from_result(result))
+    hits.sort(key=lambda h: h["score"], reverse=True)
+    return hits if len(plans) > 1 else hits[:k]
 
 
 # --------------------------------------------------------------------------- #
