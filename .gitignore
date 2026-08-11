@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets — real .env is never committed (.env.example is)
+.env
+
+# Data (§8: gitignored) — keep the directory structure via .gitkeep
+data/raw/*
+!data/raw/.gitkeep
+data/chroma/*
+!data/chroma/.gitkeep
+data/traces.jsonl
+
+# Generated eval result files (graded copies are kept outside git)
+evals/results_*.csv
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
