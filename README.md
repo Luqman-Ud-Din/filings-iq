@@ -5,10 +5,11 @@ A local RAG assistant that answers questions about Apple's three most recent
 three documents, no frameworks — hand-written retrieval so the raw mechanics are
 visible (PRD §1).
 
-> **Status:** under construction, milestone by milestone (M0 → M6). This README
-> is the single local-execution manual — it is updated in every PR that changes a
-> command or adds a pending item (FR-10). When M6 merges, this file alone takes
-> you from a fresh clone to a working system.
+> **Status:** all milestones (M0 → M6) implemented and merged. This README is the
+> single local-execution manual — from a fresh clone it takes you to a working
+> system. Everything that needs *your* machine (network access this build
+> environment lacked, API keys, and the human-graded eval) is collected under
+> **Pending human verification** below; work through it top to bottom.
 
 ---
 
@@ -71,8 +72,9 @@ Then edit `.env`:
 
 ## Command sequence (run order)
 
-> Filled in as each milestone lands. Full sequence: fetch → parse → chunk →
-> index → ask → evals → UI (PRD §10.1).
+> Full sequence: fetch → parse → chunk → index → ask → evals → UI (PRD §10.1).
+> Steps 1–4 are ingestion (run once; re-run when parsing/chunking changes);
+> 5–7 are the query loop, harness, and UI.
 
 ```bash
 # M0 — download filings + metadata (needs SEC_USER_AGENT in .env)
@@ -100,7 +102,8 @@ python -m app.ask --k 8 "How did risk factors change between FY2023 and FY2024?"
 python -m evals.run_evals                       # writes evals/results_<ts>.csv (empty grade column)
 python -m evals.run_evals --score evals/results_<ts>.csv   # §11.3 metric from your grades
 
-# (UI command added in the last milestone)
+# M6 — single-page chat UI (same core path as the CLI)
+streamlit run app/ui.py
 ```
 
 Writes `data/raw/AAPL_10-K_FY<year>.html` (three files) and
@@ -153,6 +156,32 @@ through it top to bottom after a fresh clone.
       `python -m evals.run_evals --score <file>`. Record the baseline % in the
       eval table below. *Expect ~50–60% once graded — that is normal (§12).
       Unrunnable here: needs the live index + `GOOGLE_API_KEY`.*
+- [ ] **(M5)** After grading the baseline, grade again after the M5 changes and
+      fill each `M5·N` delta in the eval table. Iterate toward **G1 (≥80%)**;
+      each further tweak is its own small PR (§13). *Deltas pending your grading.*
+- [ ] **(M6)** Run `streamlit run app/ui.py` and confirm it answers a question in
+      the browser with citations rendered beneath the answer (FR-9 AC). *Needs the
+      live index + API key; the module imports cleanly here but the browser run
+      was not possible in this environment.*
+- [ ] **(M6 / done)** Confirm the **G1–G5** acceptance checklist below once the
+      graded eval exists.
+
+### Definition of done — G1–G5 (§2)
+
+Sign these off on your machine once the pipeline has run end-to-end and the eval
+is graded:
+
+- [ ] **G1** — ≥ 80% of the 25-question eval is `grounded_correct` or
+      `refused_correctly` (`--score`). *Pending grading.*
+- [ ] **G2** — all 5 trap questions produce clean §10.4 refusals (5/5). *Refusal
+      template + deterministic year-trap path verified mechanically; the
+      wrong-company / absent-topic refusals need the live LLM.*
+- [ ] **G3** — every non-refusal answer carries ≥ 1 §10.3 citation. *Prompt
+      enforces it; the CLI/UI also list retrieved sources. Confirm on live runs.*
+- [ ] **G4** — a fresh `git clone` + this README reaches a working CLI answer in
+      ≤ 10 min (excluding model downloads).
+- [ ] **G5** — this README's eval table shows baseline → final with the changelog
+      of what moved the score (the M5·N rows below).
 
 ---
 
