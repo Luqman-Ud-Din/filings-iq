@@ -96,7 +96,11 @@ python -m ingest.index --rebuild          # embed (bge-small, CPU) into persiste
 python -m app.ask "What was services revenue in FY2024?"
 python -m app.ask --k 8 "How did risk factors change between FY2023 and FY2024?"
 
-# (evals / UI commands added in later milestones)
+# M4 — replay the eval set through the SAME path, then score after grading
+python -m evals.run_evals                       # writes evals/results_<ts>.csv (empty grade column)
+python -m evals.run_evals --score evals/results_<ts>.csv   # §11.3 metric from your grades
+
+# (UI command added in the last milestone)
 ```
 
 Writes `data/raw/AAPL_10-K_FY<year>.html` (three files) and
@@ -139,6 +143,16 @@ through it top to bottom after a fresh clone.
       `data/traces.jsonl` shows **only** `FY2024-*` chunk ids for that query.
       *The year-filter logic is unit-verified; the live trace needs the real
       index.*
+- [ ] **(M4 — do this BEFORE any tuning, §11.2)** Verify each `golden_answer` in
+      `evals/questions.csv` against the real filings and fix any that are wrong;
+      the drafted answers are marked `UNVERIFIED` and are **excluded from the
+      metric** until you confirm them. Adjust the years if your ingested corpus
+      differs from FY2022–FY2024 (see `filings_meta.json`; do not hardcode years).
+- [ ] **(M4)** Produce the baseline: `python -m evals.run_evals` (writes
+      `evals/results_<ts>.csv`), hand-grade the `grade` column per §11.3, then
+      `python -m evals.run_evals --score <file>`. Record the baseline % in the
+      eval table below. *Expect ~50–60% once graded — that is normal (§12).
+      Unrunnable here: needs the live index + `GOOGLE_API_KEY`.*
 
 ---
 
