@@ -350,10 +350,12 @@ def write_trace(record):
 # --------------------------------------------------------------------------- #
 # Orchestration (FR-5/6/7) — the shared entry point
 # --------------------------------------------------------------------------- #
-def answer(question, k=None, stream=True, trace=True):
+def answer(question, k=None, stream=True, trace=True, on_token=None):
     """Retrieve, ground, and answer one question (or refuse). Returns a dict.
 
-    ``stream=True`` prints tokens to stdout as they arrive (FR-5). Always
+    ``stream=True`` prints tokens to stdout as they arrive (FR-5). ``on_token``,
+    if given, is called with each text piece (used by the Streamlit UI to stream
+    into the page — same single path, no parallel implementation). Always
     appends a trace line (FR-7) unless ``trace=False``.
     """
     start = time.time()
@@ -365,6 +367,8 @@ def answer(question, k=None, stream=True, trace=True):
         # Empty retrieval (e.g. a fiscal year outside the corpus) -> deterministic
         # refusal, no LLM call, no guessed content (FR-6).
         text = refusal_text(fy_min, fy_max)
+        if on_token:
+            on_token(text)
         if stream:
             print(text)
         refused = True
@@ -373,6 +377,8 @@ def answer(question, k=None, stream=True, trace=True):
         pieces = []
         for piece in call_llm(system, user):
             pieces.append(piece)
+            if on_token:
+                on_token(piece)
             if stream:
                 print(piece, end="", flush=True)
         if stream:
