@@ -81,7 +81,12 @@ python fetch_filings.py
 # Inspect which filings would be fetched, without downloading:
 python fetch_filings.py --dry-run
 
-# (parse / chunk / index / ask / evals / UI commands added in later milestones)
+# M1 — parse filings into sections + markdown tables
+python -m ingest.parse                    # summarize every filing in data/raw
+python -m ingest.parse --item 8           # print Item 8 (income statement) of the most recent FY
+python -m ingest.parse --fy 2024 --item 7 # print Item 7 (MD&A) of FY2024
+
+# (chunk / index / ask / evals / UI commands added in later milestones)
 ```
 
 Writes `data/raw/AAPL_10-K_FY<year>.html` (three files) and
@@ -100,6 +105,11 @@ through it top to bottom after a fresh clone.
       confirm three `data/raw/AAPL_10-K_FY<year>.html` files (a few MB each) plus
       `data/raw/filings_meta.json` appear. *This build environment's egress
       policy blocks `data.sec.gov`, so the live download could not be run here.*
+- [ ] **(M1)** After the fetch, run `python -m ingest.parse --item 8` and confirm
+      the most-recent FY's **consolidated income statement** prints as a clean
+      markdown table with figures under the correct fiscal-year columns (FR-1 AC).
+      *Verified here only on a representative fixture — the real filings were not
+      downloadable in this environment.*
 
 ---
 
