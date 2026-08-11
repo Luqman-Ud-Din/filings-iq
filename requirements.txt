@@ -1,0 +1,28 @@
+# Pinned dependencies for "Ask the 10-K" (PRD §7 / §7.1).
+# No dependency may be added beyond this list without explicit approval.
+# Python 3.11+.
+
+# --- HTTP (FR-0 fetch, raw REST call_llm) ---
+requests==2.32.3
+
+# --- Parsing (FR-1): hand-written table->markdown over BeautifulSoup ---
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+# --- Chunking (FR-2): token counting (word-count fallback if unavailable) ---
+tiktoken==0.8.0
+
+# --- Embeddings (FR-3): bge-small-en-v1.5 on CPU ---
+sentence-transformers==3.3.1
+
+# --- Vector store (FR-3/FR-4): Chroma embedded PersistentClient ---
+chromadb==0.5.23
+
+# --- Config (§10.2): .env only, keys never hardcoded ---
+python-dotenv==1.0.1
+
+# --- UI (FR-9) ---
+streamlit==1.41.1
+
+# --- Evals (FR-8): CSV, human-graded ---
+pandas==2.2.3
