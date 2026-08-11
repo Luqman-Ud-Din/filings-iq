@@ -19,7 +19,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from ingest.chunk import chunk_all, count_tokens
+from ingest.chunk import MAX_TOKENS, chunk_all, count_tokens
 
 DEFAULT_PERSIST_DIR = "data/chroma"
 DEFAULT_COLLECTION = "filings"
@@ -33,11 +33,12 @@ def load_embedder(model_name):
     return SentenceTransformer(model_name, device="cpu")
 
 
-def build_index(persist_dir, collection_name, model_name, batch_size=32):
+def build_index(persist_dir, collection_name, model_name, batch_size=32,
+                max_tokens=MAX_TOKENS):
     """Chunk, embed, and (re)build the Chroma collection from scratch."""
     import chromadb
 
-    chunks = chunk_all()
+    chunks = chunk_all(max_tokens=max_tokens)
     if not chunks:
         print(
             "No chunks to index: no filings in data/raw/. Run the fetch/parse "
@@ -85,9 +86,9 @@ def build_index(persist_dir, collection_name, model_name, batch_size=32):
     return 0
 
 
-def dry_run():
+def dry_run(max_tokens=MAX_TOKENS):
     """Chunk only — report what would be indexed, without model or Chroma."""
-    chunks = chunk_all()
+    chunks = chunk_all(max_tokens=max_tokens)
     if not chunks:
         print(
             "No chunks: no filings in data/raw/. Run fetch/parse first.",
@@ -125,13 +126,19 @@ def main(argv=None):
         help="sentence-transformers model id (default from EMBED_MODEL env)",
     )
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--max-tokens", type=int, default=MAX_TOKENS,
+        help=f"max tokens per chunk (default {MAX_TOKENS}, aligned to the "
+        "bge-small 512-token window; raise to A/B against the ~800 baseline)",
+    )
     args = parser.parse_args(argv)
 
     if args.dry_run:
-        return dry_run()
+        return dry_run(args.max_tokens)
 
     return build_index(
-        args.persist_dir, args.collection, args.embed_model, args.batch_size
+        args.persist_dir, args.collection, args.embed_model, args.batch_size,
+        args.max_tokens,
     )
 
 

@@ -93,6 +93,7 @@ python -m ingest.chunk                    # build all chunks, print stats
 python -m ingest.chunk --sample 5         # QA: 5 random chunks + metadata
 python -m ingest.index --dry-run          # chunk only (no model download / no Chroma)
 python -m ingest.index --rebuild          # embed (bge-small, CPU) into persistent Chroma
+python -m ingest.index --rebuild --max-tokens 800   # A/B: larger chunks (see Known deviations)
 
 # M3 — ask grounded, cited questions (streams the answer)
 python -m app.ask "What was services revenue in FY2024?"
@@ -133,10 +134,11 @@ through it top to bottom after a fresh clone.
       Hugging Face. *Both the model download and Chroma indexing were unrunnable
       here (Hugging Face blocked, heavy deps deferred); chunking itself is
       verified — `python -m ingest.chunk --sample 5` shows full §9.2 metadata.*
-- [ ] **(M2 — decision point)** `bge-small-en-v1.5` accepts **512 model tokens**;
-      chunks near the PRD's 800-token ceiling are silently truncated at embed
-      time (see "Known deviations" below). Decide during M4/M5 tuning whether to
-      lower the chunk ceiling toward ~512.
+- [ ] **(M2/M5·4 — A/B decision)** The chunk budget now defaults to ~500 tokens,
+      measured with the bge tokenizer and aligned to its 512-token window (see
+      "Known deviations"). Grade the default vs. the old 800 baseline
+      (`python -m ingest.index --rebuild --max-tokens 800`) and keep the winner;
+      record the delta in the `M5·4` eval-table row.
 - [ ] **(M3)** With the index built and an API key in `.env`, run the three demo
       questions and confirm each answer carries ≥1 citation, plus one
       deliberately-unanswerable question that refuses (FR-5 AC):
@@ -187,13 +189,18 @@ is graded:
 
 ## Known deviations from the PRD
 
-- **Chunk size vs. embedding window (flagged, not worked around).** FR-2 targets
-  ~500–800 token chunks; the pinned embedder `bge-small-en-v1.5` (§7) accepts
-  only **512 model tokens** and silently truncates longer inputs. The chunker
-  keeps the PRD's 800-token ceiling as specified rather than quietly overriding
-  it; the practical effect is that the largest chunks embed on their first ~512
-  tokens. This is a tuning knob for M4/M5 (chunk size is exactly the lever §14
-  points at for retrieval misses) and a decision for you — not a silent change.
+- **Chunk size vs. embedding window (flagged, then resolved within spec).** FR-2
+  targets ~500–800 token chunks; the pinned embedder `bge-small-en-v1.5` (§7)
+  accepts only **512 model tokens** and silently truncates longer inputs. Rather
+  than override the spec, the chunker now sits at the PRD's ~500 **floor** (still
+  inside the stated 500–800 range) and measures the budget with the embedder's
+  **own tokenizer** — so a chunk embeds in full instead of on its first ~512
+  tokens. The old 800-token behavior is one flag away for A/B testing:
+  `python -m ingest.index --rebuild --max-tokens 800`. Since chunk size is the
+  lever §14 points at for retrieval misses, grade both and keep the winner
+  (recorded as `M5·4` in the eval table). Note: truncation only ever degraded
+  *retrieval* recall on a chunk's tail — the LLM always receives each retrieved
+  chunk's full text, so answer grounding was never affected.
 
 ## Troubleshooting
 
@@ -220,6 +227,7 @@ The project's source of truth is the human-graded eval score over 25 questions
 | M5·1 | section-title context prepended to each chunk (§14 paraphrase fix) | _delta pending grading_ |
 | M5·2 | balanced per-year retrieval for multi-year comparison questions (§14) | _delta pending grading_ |
 | M5·3 | grounding-prompt hardening (ignore memorized figures; refuse other company/year) | _delta pending grading_ |
+| M5·4 | chunk budget aligned to bge 512-token window (default ~500; `--max-tokens` to A/B 800) | _delta pending grading_ |
 
 _(Baseline → final changelog is filled in as M4/M5 PRs merge and you grade the
 results; scores are never auto-filled. Each M5 row is one improvement; run
